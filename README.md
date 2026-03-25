@@ -238,9 +238,11 @@ That path leads to sadness.
 ## Release docs
 
 - [Release checklist](/Users/arigs/Projects/Figma-Relay/docs/release-checklist.md)
+- [Release notes v0.1.0](/Users/arigs/Projects/Figma-Relay/docs/release-notes-v0.1.0.md)
 - [MCP tool surface](/Users/arigs/Projects/Figma-Relay/docs/mcp-tools.md)
 - [Parity backlog](/Users/arigs/Projects/Figma-Relay/docs/parity-backlog.md)
 - [VNext backlog](/Users/arigs/Projects/Figma-Relay/docs/vnext-backlog.md)
+- [Changelog](/Users/arigs/Projects/Figma-Relay/CHANGELOG.md)
 
 ## Notes
 
