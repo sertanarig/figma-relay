@@ -1,0 +1,20 @@
+{
+  "name": "Figma Relay",
+  "id": "figma-runtime-mcp-dev",
+  "api": "1.0.0",
+  "editorType": ["figma", "figjam"],
+  "main": "dist/code.js",
+  "ui": "dist/ui.html",
+  "enablePrivatePluginApi": true,
+  "permissions": ["teamlibrary"],
+  "networkAccess": {
+    "allowedDomains": [
+      "https://www.figma.com",
+      "http://localhost:3210",
+      "http://localhost:3211",
+      "http://localhost:3212"
+    ],
+    "reasoning": "Connect to local bridge and load Figma-hosted icon assets for pixel-accurate UI."
+  },
+  "documentAccess": "dynamic-page"
+}

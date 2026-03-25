@@ -1,0 +1,14 @@
+{
+  "servers": {
+    "figma-runtime-local": {
+      "type": "stdio",
+      "command": "npm",
+      "args": ["run", "mcp:stdio"]
+    },
+    "figma-runtime-local-3211": {
+      "type": "stdio",
+      "command": "npm",
+      "args": ["run", "mcp:stdio:3211"]
+    }
+  }
+}

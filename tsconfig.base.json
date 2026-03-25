@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022", "DOM"],
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "@codex-figma/protocol": ["packages/protocol/src/index.ts"],
+      "@codex-figma/tool-definitions": ["packages/tool-definitions/src/index.ts"],
+      "@codex-figma/mcp-server": ["packages/mcp-server/src/index.ts"],
+      "@codex-figma/figma-runtime": ["packages/figma-runtime/src/index.ts"],
+      "@codex-figma/figma-runtime/*": ["packages/figma-runtime/*"]
+    },
+    "types": ["node", "vitest/globals"]
+  },
+  "include": [
+    "packages/**/*.ts"
+  ]
+}

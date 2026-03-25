@@ -1,0 +1,4 @@
+.DS_Store
+.figma-runtime-mcp/
+.env.local
+node_modules/

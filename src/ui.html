@@ -1,0 +1,509 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Figma Relay</title>
+    <style>
+      :root {
+        --bg: #f8f7fc;
+        --panel: #ffffff;
+        --stroke: #ebebf5;
+        --text: #313133;
+        --muted: #747378;
+        --success: #0b7a1e;
+        --title: #271b66;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      .app {
+        padding: 6px 12px;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        justify-content: flex-start;
+        overflow: hidden;
+      }
+      .meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        margin-top: 0;
+        min-height: 16px;
+      }
+      .meta-item {
+        display: flex;
+        align-items: center;
+        gap: 0;
+        color: var(--text);
+        min-width: 0;
+        line-height: 16px;
+      }
+      .meta-item span {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .status-row {
+        display: flex;
+        justify-content: flex-start;
+        align-items: center;
+        gap: 0;
+        font-size: 12px;
+        line-height: 16px;
+        min-height: 16px;
+      }
+      .status-left {
+        display: flex;
+        align-items: center;
+        gap: 0;
+        color: var(--success);
+        font-weight: 500;
+      }
+      .hidden {
+        display: none;
+      }
+      .status-warning {
+        color: #b54708 !important;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <div class="meta">
+        <div class="meta-item">
+          <span id="fileName">Playground</span>
+        </div>
+        <div class="meta-item">
+          <span id="pageName" style="font-weight:500">Status</span>
+        </div>
+      </div>
+
+      <div class="status-row">
+        <div class="status-left">
+          <span id="bridgeStatus">Connected</span>
+        </div>
+      </div>
+      <button id="connectBtn" class="hidden" type="button">Reconnect</button>
+    </div>
+
+    <script>
+      const BRIDGE_URLS = [
+        "http://localhost:3210",
+        "http://localhost:3211",
+        "http://localhost:3212"
+      ];
+      const statusEl = document.getElementById("bridgeStatus");
+      const connectBtn = document.getElementById("connectBtn");
+      const fileNameEl = document.getElementById("fileName");
+      const pageNameEl = document.getElementById("pageName");
+
+      let eventSource = null;
+      let bridgeUrlIndex = 0;
+      let activeBridgeUrl = BRIDGE_URLS[0];
+      let heartbeatTimer = null;
+      let lastRuntimeHello = null;
+      let lastRuntimeContext = null;
+      const pendingByRequestId = new Map();
+      let reconnectTimer = null;
+      let latestBridgeBuildStamp = null;
+      let buildProbeTimer = null;
+      let warnedBuildStamp = null;
+      let bridgeClientId = null;
+
+      function extractFigmaFileKeyFromUrl(url) {
+        if (typeof url !== "string" || !url) {
+          return null;
+        }
+
+        const patterns = [
+          /\/design\/([^/?#]+)/u,
+          /\/file\/([^/?#]+)/u,
+          /\/board\/([^/?#]+)/u,
+          /\/make\/([^/?#]+)/u
+        ];
+
+        for (const pattern of patterns) {
+          const match = url.match(pattern);
+          if (match && match[1]) {
+            return match[1];
+          }
+        }
+
+        return null;
+      }
+
+      function detectBrowserFileKey() {
+        return (
+          extractFigmaFileKeyFromUrl(window.location.href) ||
+          extractFigmaFileKeyFromUrl(document.referrer) ||
+          null
+        );
+      }
+
+      function syncBrowserContext() {
+        const fileKey = detectBrowserFileKey();
+        if (!fileKey) {
+          return;
+        }
+
+        parent.postMessage(
+          {
+            pluginMessage: {
+              type: "runtime:browser-context",
+              payload: { fileKey }
+            }
+          },
+          "*"
+        );
+      }
+
+      function log(line) {
+        console.debug("[Figma Relay UI]", line);
+      }
+
+      function setBridgeStatus(connected) {
+        statusEl.textContent = connected ? "Connected" : "Disconnected";
+        statusEl.style.color = connected ? "#0b7a1e" : "#b42318";
+        statusEl.classList.remove("status-warning");
+      }
+
+      function setBuildWarning(message) {
+        if (!message) {
+          if (eventSource && eventSource.readyState === EventSource.OPEN) {
+            setBridgeStatus(true);
+          } else {
+            setBridgeStatus(false);
+          }
+          return;
+        }
+        statusEl.textContent = message;
+        statusEl.style.color = "#b54708";
+        statusEl.classList.add("status-warning");
+      }
+
+      function maybeWarnAboutStaleBuild(reason) {
+        const runtimeBuildStamp = lastRuntimeHello?.buildStamp || null;
+        if (!latestBridgeBuildStamp || !runtimeBuildStamp || latestBridgeBuildStamp === runtimeBuildStamp) {
+          return;
+        }
+        if (warnedBuildStamp === latestBridgeBuildStamp) {
+          return;
+        }
+        warnedBuildStamp = latestBridgeBuildStamp;
+        log(`New plugin build detected after ${reason}. Reopen required.`);
+        setBuildWarning("Plugini yeniden baslatin");
+      }
+
+      function clearReconnectTimer() {
+        if (reconnectTimer) {
+          clearTimeout(reconnectTimer);
+          reconnectTimer = null;
+        }
+      }
+
+      async function probeBridge(url) {
+        try {
+          const response = await fetch(`${url}/health`);
+          if (!response.ok) {
+            return false;
+          }
+          const payload = await response.json().catch(() => null);
+          return payload && payload.bridge && payload.bridge.name === "figma-runtime-mcp";
+        } catch {
+          return false;
+        }
+      }
+
+      async function resolveBridgeUrl(preferredUrl) {
+        const orderedCandidates = [];
+
+        if (preferredUrl) {
+          orderedCandidates.push(preferredUrl);
+        }
+
+        for (const candidate of BRIDGE_URLS) {
+          if (!orderedCandidates.includes(candidate)) {
+            orderedCandidates.push(candidate);
+          }
+        }
+
+        for (const candidate of orderedCandidates) {
+          if (await probeBridge(candidate)) {
+            return candidate;
+          }
+        }
+
+        return orderedCandidates[0];
+      }
+
+      async function probeLatestBuild() {
+        if (!activeBridgeUrl) {
+          return;
+        }
+
+        try {
+          const response = await fetch(`${activeBridgeUrl}/dev/build`);
+          if (!response.ok) {
+            return;
+          }
+          const payload = await response.json();
+          latestBridgeBuildStamp = payload?.build?.buildStamp || null;
+        } catch {
+          // noop
+        }
+      }
+
+      function startBuildProbe() {
+        if (buildProbeTimer) {
+          clearInterval(buildProbeTimer);
+        }
+        buildProbeTimer = setInterval(() => {
+          probeLatestBuild();
+        }, 3000);
+        probeLatestBuild();
+      }
+
+      function sendPromptToPlugin(text, requestId) {
+        parent.postMessage(
+          {
+            pluginMessage: {
+              type: "runtime:command",
+              payload: {
+                requestId,
+                text
+              }
+            }
+          },
+          "*"
+        );
+      }
+
+      function sendToolRequestToPlugin(request) {
+        parent.postMessage(
+          {
+            pluginMessage: {
+              type: "runtime:tool",
+              request
+            }
+          },
+          "*"
+        );
+      }
+
+      async function postBridgeResponse(payload) {
+        const bridgeUrl = activeBridgeUrl;
+        try {
+          await fetch(`${bridgeUrl}/response`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+        } catch (err) {
+          log(`Bridge response send error: ${String(err)}`);
+        }
+      }
+
+      async function postRuntimeState(path, payload) {
+        const bridgeUrl = activeBridgeUrl;
+        try {
+          await fetch(`${bridgeUrl}${path}`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+        } catch (err) {
+          log(`Runtime state sync error: ${String(err)}`);
+        }
+      }
+
+      function stopHeartbeat() {
+        if (heartbeatTimer) {
+          clearInterval(heartbeatTimer);
+          heartbeatTimer = null;
+        }
+      }
+
+      function startHeartbeat() {
+        stopHeartbeat();
+        heartbeatTimer = setInterval(async () => {
+          if (lastRuntimeHello) {
+            await postRuntimeState("/runtime/hello", lastRuntimeHello);
+          }
+          if (lastRuntimeContext) {
+            await postRuntimeState("/runtime/context", lastRuntimeContext);
+          }
+        }, 10000);
+      }
+
+      async function syncRuntimeStateNow() {
+        if (lastRuntimeHello) {
+          await postRuntimeState("/runtime/hello", lastRuntimeHello);
+        }
+        if (lastRuntimeContext) {
+          await postRuntimeState("/runtime/context", lastRuntimeContext);
+        }
+      }
+
+      function scheduleReconnect(preferredUrl) {
+        clearReconnectTimer();
+        reconnectTimer = setTimeout(() => {
+          connectBridge(preferredUrl);
+        }, 2000);
+      }
+
+      async function connectBridge(preferredUrl) {
+        clearReconnectTimer();
+        const bridgeUrl = await resolveBridgeUrl(preferredUrl || activeBridgeUrl);
+        bridgeUrlIndex = Math.max(BRIDGE_URLS.indexOf(bridgeUrl), 0);
+        activeBridgeUrl = bridgeUrl;
+
+        if (eventSource) {
+          eventSource.close();
+        }
+
+        setBridgeStatus(false);
+        eventSource = new EventSource(`${bridgeUrl}/events`);
+
+        eventSource.onopen = () => {
+          setBridgeStatus(true);
+          startHeartbeat();
+          startBuildProbe();
+          syncRuntimeStateNow().catch((error) => {
+            log(`Runtime resync error: ${String(error)}`);
+          });
+          log(`Connected to bridge SSE (${bridgeUrl}).`);
+        };
+
+        eventSource.onerror = () => {
+          setBridgeStatus(false);
+          stopHeartbeat();
+          log(`Bridge connection lost (${bridgeUrl}). Reconnecting in 2s...`);
+          eventSource.close();
+          scheduleReconnect(bridgeUrl);
+        };
+
+        eventSource.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === "prompt" && data.id && data.text) {
+              pendingByRequestId.set(data.id, true);
+              log(`Bridge prompt received: ${data.text}`);
+              sendPromptToPlugin(data.text, data.id);
+            } else if (data.type === "command" && data.request) {
+              pendingByRequestId.set(data.request.requestId, true);
+              log(`Bridge command received: ${data.request.command}`);
+              sendToolRequestToPlugin(data.request);
+            } else if (data.type === "hello") {
+              bridgeClientId = data.clientId || bridgeClientId;
+              log(`Bridge says hello. Active listeners: ${data.listeners}`);
+            }
+          } catch (err) {
+            log(`Bad SSE message: ${String(err)}`);
+          }
+        };
+      }
+
+      connectBtn.addEventListener("click", () => {
+        connectBridge(activeBridgeUrl);
+      });
+
+      window.onmessage = async (event) => {
+        const msg = event.data.pluginMessage;
+        if (!msg) return;
+
+        if (msg.type === "file-context") {
+          const fileName = msg.fileName || "Unknown";
+          const pageName = msg.pageName || "Unknown";
+          fileNameEl.textContent = fileName;
+          pageNameEl.textContent = pageName;
+          return;
+        }
+
+        if (msg.type === "runtime:hello" && msg.payload) {
+          const { buildStamp, fileName, pageName, runtimeSessionId, capabilities } = msg.payload;
+          lastRuntimeHello = Object.assign({}, msg.payload, {
+            clientId: bridgeClientId || msg.payload.clientId || null
+          });
+          fileNameEl.textContent = fileName || "Unknown";
+          pageNameEl.textContent = pageName || "Unknown";
+          if (latestBridgeBuildStamp && buildStamp && latestBridgeBuildStamp === buildStamp) {
+            warnedBuildStamp = null;
+            setBuildWarning("");
+          }
+          await postRuntimeState("/runtime/hello", lastRuntimeHello);
+          log(
+            `Runtime ready (${runtimeSessionId}) with ${Array.isArray(capabilities) ? capabilities.length : 0} capabilities.`
+          );
+          return;
+        }
+
+        if (msg.type === "runtime:context" && msg.payload) {
+          lastRuntimeContext = Object.assign({}, msg.payload, {
+            clientId: bridgeClientId || msg.payload.clientId || null
+          });
+          fileNameEl.textContent = msg.payload.fileName || "Unknown";
+          pageNameEl.textContent = msg.payload.pageName || "Unknown";
+          await postRuntimeState("/runtime/context", lastRuntimeContext);
+          return;
+        }
+
+        if (msg.type === "runtime:tool-result") {
+          if (!msg.ok) {
+            maybeWarnAboutStaleBuild(`tool failure (${msg.message || "unknown error"})`);
+          }
+          if (pendingByRequestId.has(msg.requestId)) {
+            pendingByRequestId.delete(msg.requestId);
+            await postBridgeResponse({
+              id: msg.requestId,
+              ok: !!msg.ok,
+              message: msg.message || "",
+              data: msg.data || null
+            });
+          }
+          return;
+        }
+
+        if (msg.type !== "run-result") return;
+
+        const line = msg.ok ? `Done: ${msg.message}` : `Error: ${msg.message}`;
+        log(line);
+        if (!msg.ok) {
+          maybeWarnAboutStaleBuild(`prompt failure (${msg.message || "unknown error"})`);
+        }
+
+        if (pendingByRequestId.has(msg.requestId)) {
+          pendingByRequestId.delete(msg.requestId);
+          await postBridgeResponse({
+            id: msg.requestId,
+            ok: !!msg.ok,
+            message: msg.message || "",
+            data: msg.data || null
+          });
+        }
+      };
+
+      connectBridge(activeBridgeUrl);
+      syncBrowserContext();
+      parent.postMessage({ pluginMessage: { type: "runtime:request-hello" } }, "*");
+      parent.postMessage({ pluginMessage: { type: "request-context" } }, "*");
+      log("UI ready.");
+    </script>
+  </body>
+</html>

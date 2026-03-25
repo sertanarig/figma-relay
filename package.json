@@ -1,0 +1,61 @@
+{
+  "name": "figma-runtime-mcp",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build:plugin && tsc -p tsconfig.base.json --noEmit",
+    "build:plugin": "node scripts/build-plugin.mjs",
+    "build:plugin:watch": "node scripts/watch-plugin.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "bridge:doctor": "node scripts/bridge-doctor.mjs",
+    "bridge:doctor:3211": "CODEX_FIGMA_BRIDGE_URL=http://127.0.0.1:3211 node scripts/bridge-doctor.mjs",
+    "bridge:down": "node scripts/bridge-down.mjs",
+    "demo": "npm run demo:simulated",
+    "demo:ready": "npm run bridge:up && npm run bridge:doctor && npm run smoke:e2e -- --allow-no-runtime",
+    "demo:live": "npm run demo:reset && npm run bridge:up && npm run bridge:doctor && node scripts/wait-for-runtime.mjs && npm run smoke:e2e",
+    "demo:reset": "node scripts/runtime-simulator-down.mjs && node scripts/bridge-down.mjs",
+    "demo:simulated": "npm run bridge:up && node scripts/runtime-simulator-up.mjs && npm run smoke:e2e",
+    "smoke:e2e": "node scripts/smoke-e2e.mjs",
+    "smoke:styles": "node scripts/style-smoke.mjs",
+    "smoke:figjam": "node scripts/figjam-smoke.mjs",
+    "smoke:stress": "node scripts/stress-smoke.mjs",
+    "smoke:write-stress": "node scripts/write-stress-smoke.mjs",
+    "smoke:mixed-stress": "node scripts/mixed-stress-smoke.mjs",
+    "smoke:large-file": "node scripts/large-file-smoke.mjs",
+    "smoke:long-run": "node scripts/long-run-smoke.mjs",
+    "smoke:comments": "node scripts/comments-smoke.mjs",
+    "smoke:component-properties": "node scripts/component-properties-smoke.mjs",
+    "showcase:full": "node scripts/full-showcase.mjs",
+    "release:check": "node scripts/release-check.mjs",
+    "release:report": "node scripts/release-report.mjs",
+    "release:summary": "node scripts/release-summary.mjs",
+    "troubleshoot": "tsx scripts/troubleshoot-summary.ts",
+    "smoke:e2e:3211": "CODEX_FIGMA_BRIDGE_URL=http://127.0.0.1:3211 node scripts/smoke-e2e.mjs",
+    "mcp:stdio": "tsx packages/mcp-server/src/stdio.ts",
+    "mcp:stdio:3211": "CODEX_FIGMA_BRIDGE_URL=http://127.0.0.1:3211 tsx packages/mcp-server/src/stdio.ts",
+    "bridge:up": "node scripts/bridge-up.mjs",
+    "bridge:start": "node bridge/server.mjs",
+    "dev": "npm run bridge:start",
+    "dev:plugin": "npm run build:plugin:watch",
+    "bridge:start:3211": "CODEX_FIGMA_BRIDGE_PORT=3211 node bridge/server.mjs",
+    "bridge:send": "node bridge/send-prompt.mjs",
+    "bridge:send:3211": "CODEX_FIGMA_BRIDGE_URL=http://127.0.0.1:3211 node bridge/send-prompt.mjs",
+    "runtime:handoff": "node scripts/runtime-handoff.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^24.6.0",
+    "esbuild": "^0.27.4",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4",
+    "zod": "^4.1.11"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.1"
+  }
+}
