@@ -1,4 +1,4 @@
-# Figma Runtime MCP V1 Release Checklist
+# Figma Relay V1 Release Checklist
 
 ## Release Gate
 
@@ -6,11 +6,11 @@
 - `npm run release:report`
 - `npm run release:summary`
 
-`release:check` hızlı ve bloklayıcı kapıdır.
+`release:check` is the fast, blocking release gate.
 
-`release:report` tüm smoke ve stress adımlarını JSON olarak döker.
+`release:report` dumps the full smoke/stress path as JSON.
 
-`release:summary` aynı hattın kısa okunabilir özetidir.
+`release:summary` gives the same path in a short human-readable form.
 
 ## Required Green Checks
 
@@ -27,18 +27,18 @@
 
 ## Runtime Preconditions
 
-- `Figma Relay` plugin açık olmalı
-- aktif runtime bağlı olmalı
-- `.env.local` içinde gereken secret'lar tanımlı olmalı
-- gerektiğinde `FIGMA_ACCESS_TOKEN` mevcut olmalı
+- The `Figma Relay` plugin must be open
+- An active runtime must be connected
+- Required secrets must be present in `.env.local`
+- `FIGMA_ACCESS_TOKEN` must be available when REST-backed tools need it
 
 ## Manual Spot Checks
 
-- Dashboard payload mantıklı `health.status` dönüyor mu
-- Design system report anlamlı `recommendedActions` dönüyor mu
-- Component doc örnekleri okunabilir mi
-- Verification report readiness/finding dağılımı mantıklı mı
-- Yeni build uyarısı gereksiz spam üretmiyor mu
+- Does the dashboard return a sensible `health.status`?
+- Does the design system report return meaningful `recommendedActions`?
+- Are component doc examples readable?
+- Does the verification report produce believable readiness/finding distributions?
+- Does the new-build warning stay quiet unless it really matters?
 
 ## Performance Checks
 
@@ -48,17 +48,17 @@
 - `npm run smoke:large-file`
 - `npm run smoke:long-run -- --loops=1`
 
-Beklenen:
+Expected:
 
-- read-heavy smoke failure vermemeli
-- write-heavy smoke failure vermemeli
-- mixed stress failure vermemeli
-- large-file smoke gerçek dosya inventory'sini tamamlayabilmeli
-- long-run smoke boyunca runtime bağlantısı düşmemeli
+- The read-heavy smoke should not fail
+- The write-heavy smoke should not fail
+- The mixed stress run should not fail
+- The large-file smoke should complete real inventory reads on the active file
+- The runtime connection should stay up through the long-run smoke
 
 ## Cache Notes
 
-Şu an kısa süreli cache ile sakinleştirilmiş yüzeyler:
+These surfaces are currently quieted with short-lived caches:
 
 - design system inventory
 - component detail/image
@@ -66,16 +66,16 @@ Beklenen:
 - design system report
 - verification report
 
-Amaç, kısa aralıkta aynı çağrılar tekrarlandığında gereksiz runtime yükünü azaltmaktır. Cache kalıcı veri deposu değildir; birkaç saniyelik tekrarları keser.
+The goal is simple: when the same calls happen again a few seconds later, avoid hammering the runtime for no reason. This is not a persistence layer. It is just a small “everybody relax” buffer.
 
 ## Ship Criteria
 
-- `release:summary` `ready` dönmeli
-- parity backlog boş olmalı
-- bilinen bloklayıcı bug olmamalı
-- plugin reopen sadece plugin-main değişince gerekmeli
+- `release:summary` should return `ready`
+- The parity backlog should be empty
+- There should be no known blocking bug
+- Plugin reopen should only be required when the plugin main bundle actually changed
 
 ## After V1
 
-- Yeni iş parity backlog'a değil `vnext` backlog'una girmeli
-- V1 hattında sadece bugfix, reliability ve release blocker işleri yapılmalı
+- New work should go to the `vnext` backlog, not back into parity
+- The V1 line should only take bugfixes, reliability work, and release blockers

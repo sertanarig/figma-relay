@@ -1,34 +1,34 @@
-# Figma Runtime MCP VNext Backlog
+# Figma Relay VNext Backlog
 
-Bu dosya parity sonrası işler içindir. Buradaki maddeler `v1` release hattını bloke etmez.
+This file is for post-parity work. None of the items below should block the `v1` release line.
 
 ## Product UX
 
-- Dashboard payload'ını görsel kartlar ve drill-down aksiyonlarıyla genişlet
-- Browser payload'ları için daha ürünleşmiş grouping/sorting seçenekleri ekle
-- Kullanıcıya dönük daha net troubleshooting özetleri üret
+- Expand the dashboard payload with richer cards and drill-down actions
+- Add more productized grouping and sorting options to browser payloads
+- Make troubleshooting summaries clearer for humans, not just for engineers
 
 ## Reporting Intelligence
 
-- Verification report için daha iyi heuristics ve section-level karşılaştırmalar ekle
-- Audit bulgularında daha zengin suppress/waiver mekanizması tasarla
-- Doc generation tarafında daha akıllı örnek üretimi ve collision çözümü ekle
+- Add better heuristics and section-level comparisons to verification reports
+- Design a richer suppression/waiver model for audit findings
+- Make doc generation smarter about examples and naming collisions
 
 ## Performance
 
-- Büyük dosyalarda component/style/token browser çağrılarını kademeli ve cache-aware hale getir
-- Release report adımlarını gereksiz tekrarları azaltacak şekilde optimize et
-- Uzun koşularda runtime heartbeat ve reconnect davranışlarını daha da sertleştir
+- Make component/style/token browser reads more incremental and cache-aware on large files
+- Trim unnecessary repeated work from release-report steps
+- Harden runtime heartbeat and reconnect behavior for long sessions
 
 ## Tool Surface Extensions
 
-- Figma Console dışı ayırıcı özellikler düşün:
-  - release readiness trendleri
-  - change impact summary
-  - component family health score
+- Keep pushing beyond Figma Console with differentiators like:
+  - release readiness trends
+  - change impact summaries
+  - component family health scoring
   - doc drift detection
 
 ## Shipping Rules
 
-- Bu listedeki işler yalnızca `v1` release hattı temiz kaldığında alınmalı
-- Yeni feature eklemeden önce parity/reliability üzerinde regresyon yaratmadığı doğrulanmalı
+- Only pull from this list once the `v1` release line is clean
+- Before adding new features, verify they do not regress parity or reliability

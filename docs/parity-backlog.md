@@ -1,4 +1,4 @@
-# Figma Runtime MCP Parity Backlog
+# Figma Relay Parity Backlog
 
 ## P0
 
