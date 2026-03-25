@@ -2,7 +2,7 @@
 
 Figma Relay is an agent-agnostic local bridge between Figma/FigJam and any MCP-compatible client.
 
-If Codex is your thing, great. If Claude is your thing, also great. If you want both to take turns without making the plugin reconnect every five minutes, that is exactly the kind of chaos this project is here to reduce.
+If your client speaks MCP, that is the important part. Figma Relay is built to keep the bridge stable while different tools take turns using the same live runtime.
 
 Under the hood, the technical package/server identity stays `figma-runtime-mcp`. The product name users see is **Figma Relay**.
 
@@ -207,7 +207,7 @@ That means:
 - keep the local bridge running
 - point both agents at the same local MCP server
 
-Recommended Claude Desktop MCP entry:
+Example MCP entry:
 
 ```json
 {
